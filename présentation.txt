@@ -1,0 +1,253 @@
+
+1/ En-tete : 
+Bonjour je suis Guillaume Guitarian et aujourd'hui, je vais vous présenter 
+le développement d'une preuve de concept (dit POC) pour l'entreprise dataSpace
+
+
+2/ SOMMAIRE
+
+***
+
+MÉTHODOLOGIE :
+
+ EN 2 ÉTAPES	
+	
+	DANS 1 ER TEMPS NOUS ÉTABLIERONS LE CONTEXTE PROJET et JEU DE DONNÉES
+
+***
+
+	PUIS nous EXPOSERONS notre DEMARCHE:
+	NOTAMMENT :   
+		- le choix du modèle de RÉFÉRENCE DIT BASELINE
+			du nouveau modèle de notre POC
+			ainsi que les métriques utlisées 
+			
+		NOUS EVOQUERONS EGALEMENT QUELQUES DETAILS SUPPLEMENTAIRES SUR LE 		
+			- jeu de données
+			- et l'entrainement des modèles
+	
+***	
+
+
+PASSONS À L'EXPRESSION DU BESOIN
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+3/ PRÉSENTATION DU PROJET
+
+DataSpace est une entreprise experte en solutions de data science pour qui nous allons TENTER
+	D'AMÉLIORER UN MODÈLE DE DEEPLEARNING QUI A DÉJÀ FAIT SES PREUVES.
+
+POUR CE FAIRE, nous allons réaliser une VEILLE TECHNOLOGIQUE afin de chercher et trouver UN NOUVEAU MODÈLE PROMETTEUR
+	QUE NOUS COMPARERONS à notre MODÈLE BASELINE DE RÉFÉRENCE utilisé lors d'un PRÉCEDANT PROJET
+
+
+PASSONS JUSTEMENT AU CONTEXTE DE CE PRÉCÉDENT PROJET :
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+4/ Méthodologie : CONTEXTE (PROJET)
+
+
+Le domaine de l'IA dans lequel nous allons OPERER (pour ce POC) est la vision par ordinateur qui permet notamment de faire de :
+	- la CLASSIFICATION d'image OÙ l'image entière représente 1 classe
+	- la DETECTION d'objet dans une image OÙ des parties entière (box) de l'image represente des classe
+    - MAIS ÉGALEMENT DE FAIRE DE LA SEGMENTATION SÉMANTIQUE où chaque pixel de l'image représente une classe d'objet
+	ET C'EST CETTE DERNIÈRE QUE NOUS UTILISERONS 
+		COMME nous l'avons DÉJA fait LORS DE NOTRE PRÉCÉDANT PROJET DE CONCEPTION DE VOITURE AUTONOME.
+
+
+POUR TERMINER DE POSER LE CONTEXTE, PARLONS UN PEU DU JEU DE DONNÉES:
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+5/ Méthodologie : CONTEXTE (JEU DE DONNÉES)
+		
+
+Le jeu de données est composé de 2 RÉPERTOIRES PRINCIPAUX
+	-1/  L'un comprenant des IMAGES réelles de 2048 pixels de large sur 1024 de haut 
+	     et représentant des photos prises en ALLEMAGE depuis l'habitacle d'une voiture
+	     ON peut y voir notamment des routes, des construction, des véhicules, des piétons et de la nature
+	
+	2/  L'autre comprenants des FICHIER D'annotations dont les MASQUES GT(réalité terrain) correspondants.
+	    Les masques sont essentiellement des images numériques dont la valeur de chaque pixel correspond au numéro
+		d'une des 30 classes prédéfinies par les créateurs du jeu de données)
+		 
+		 
+***
+***
+
+
+PARLONS A NOTRE DEMARCHE
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+6/ Méthodologie :  DEMARCHE
+
+
+CHOIX MODELE : 
+OLD ==> UNet populaire et bons résultats LORS DE NOTRE PRÉDÉDANT PROJET DE CONCEPTION DE VOITURE AUTONOME
+
+NEW MODEL : 
+	- CROISER LES INFORMATIONS SUR PAPERSWITHCODE.COM + ARXIV.ORG ==> 
+		- DATE OK
+		- MODELE performant sur notre jeux de donnée avec un meanIoU = 84.5% (https://paperswithcode.com/sota/semantic-segmentation-on-cityscapes)
+		- PERMIS DE TROUVER UNE BIBLIOTHEQUE IMPLÉMENTANT CE MODEL 
+		
+		==> (HRNet) (HIGH RESOLUTION NETWORK) :
+			l’HRNetV2 
+			+ OCR (OBJECT-CONTEXTUAL REPRESENTATIONS) dont nous parlerons rapidement lors de la présentation de notre modèle
+
+
+MÉTRIQUES : COMPARAISON SUR : 
+	- CATEGORICAL ACCURACY : 
+		qui n'est autre que le taux de pixels correctement prédit
+	- meanIoU (Mean Intersection over Union):  MASQUE GR / MASQUE PREDIT 
+		LA MOYENNE DES RAPPORTS entre l’INTERSECTION de la zone de PRÉDICTION et la zone réelle (pour une classe de pixel) 
+		SUR l’union de ces 2 mêmes zones.
+		Pour simplifier la compréhension de métrique IoU : si la zone de segmentation prédite chevauche parfaitement celle de la réalité terrain
+		nous auront alors un score de 1 et un score de 0 dans le cas opposé.
+		
+		
+OPTIMISATION JEU DE DONNEES POUR SIMPLEMENT REUSSIR A ENTRAINER NOS MODELES SANS CRASH
+	30 Classes ==> 8 Classes
+	DATA GENERATOR qui permet Prise en charge en RAM d’une grande quantité d’image via découpage en BATCH (sans augmentation)
+	(CHOIX DE LA TAILLE DE REDIMENSIONNEMENT DES IMAGES et MASQUE à 128 *128)
+		
+
+OPTIMISATION DE L'ENTRAINEMENT :
+	OPTIMIZATION : EARLY STOPPING (sur la val_loss) à 5 ce qui donnait les meilleurs résultats sans trop de surentrainement
+	CHECKPOINTS ==> SAUVEGARDE (des POIDS de modèles, la sauvegarde du modèle en lui-même ne fonctionnant pas) et RÉUTILISATION des modèles
+
+
+PASSONS A PRESENT A LA PRÉSENTATION DE NOTRE MODELE BASELINE
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+7/ 
+
+Unet ==> Modèle populaire qui a fait ses preuves en SEGMENTATION SÉMANTIQUE qui est un sous domaine de la VISION PAR ODINATEUR
+
+     Et donc quand on parle de VISION PAR ORDINATEUR Le choix d'un CNN parait alors ÉVIDENT
+	 Sauf quen SORTIE d'un CNN nous n'avons qu'un VECTEUR DE LONGUEUR FIXE 
+	 ==> OK pour classification d’images 
+	 ==> Mais pas en SEGMENTATION SÉMENTIQUE où nous avons BESOIN de DONNÉES DE SPATIALISATION
+	
+	D'OÙ
+		L’architecture en SERIE de type ENCODEUR / DECODEUR 
+		 ENC ==> 1er couche de CNN (CONV + POOL) : SOUS ÉCHANTILLONAGE 
+		 DEC ==> SUR. ECH. ==> SORTIE = TAILLE D’image en entrée
+
+	MAIS 
+		Pour PARER à la perte potentielle d'informations lorsque l'on ne fait qu'empiler des couches d'encodage et de décodage
+		AJOUT des SKIP CONEX (SORTIES INTERMÉDIAIRES DU CODEUR SONT AJOUTÉES/CONCATÉNÉES AVEC LES ENTRÉES DES COUCHES INTERMÉDIAIRES DU DÉCODEUR) 
+		qui permettent une meilleur délimitation des masques de segmentation
+
+	NOUS pouvons clairement voir que ce réseau final est FORME DE U d'où son nom !
+	
+
+PASSONS A PRESENT A LA PRÉSENTATION DE NOTRE NOUVEAU MODEL A LA BASE DE NOTRE POC
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+8/ 
+
+	
+HRNet est à l’instar de UNet un réseau de neurones CONVOLUTIONNEL 
+	mais contrairement à UNet qui est CONSTITUÉ d’une architecture en SÉRIE de type ENCODEUR – DÉCODEUR, 
+	HRNet suit une différente approche 
+	- dont voici une représentation graphique Dans la figure en haut à gauche 
+	- et dont les principales caractéristiques sont :
+
+1/ Maintien de la Haute Résolution :
+	réprésenté sur la figure en haut à gauche par la première ligne la plus haute en jaune / beige 
+	où l'on voit la succession des cartes d'activation (feature map) ayant toute la même haute résolution 
+	LA HAUTE RÉSOLUTION ÉTANT MAINTENUE EN CHOISISSANT DE MANIÈRE ADÉQUATE LES PARAMÈTRE DE CONVOLUTION tels que : 
+		- la de taille du filtre (kernel) à F = 3*3 
+		- le PAS de défilement de la fenetre de kerner (stride) S = 1 
+		- ZERO PADDING avec P = 1 = (F−1)/2
+
+2/ SOUS RESEAUX en // ()
+	DÉCOMPOSITION en 4 sous réseaux (et dont la résoulution vaut 1/(2^(r-1)) avec la résolution du 1er réseau valant 1)
+	==> 1er Réseau à une résolution maximale de 1 = 100 % obtenu via 1/(2^(1-1)) 
+		2ième Réseau => RES = 1/2 obtenu via 1/(2^(2-1)) 
+		3ième Réseau => RES = 1/4 obtenu via 1/(2^(3-1))
+		4ième Réseau => RES = 1/8 obtenu via 1/(2^(4-1))
+	
+3/ FUSION des sous réseaux
+	Pour appréhender cette fusion il faut savoir que toutes les fléches en noire sur le graphe
+	vont TOUTES de la gauche vers la droite et en fonction de leur direction représente différentes fonction :
+		==> TOUT DROIT : étape de convolution
+		==> DESCENDANTE : étape de SOUS-ÉCHANTILLONAGE (que l'on retrouve également dans la partie ENCODEUR d'un réseau UNet)   (Stride au lieu de pool)
+        ==> MONTANTE : étape de SUR-ÉCHANTILLONAGE (que l'on retrouve également dans la partie DÉCODEUR d'un réseau UNet)
+	La fusion est alors caractérisée par la concaténation répétitives des couches 'finales' (SUR-ECHANTILLONNÉES ou SOUS-ECHANTILLONNÉES) des différents sous réseaux
+	'finales' = dernière couche de convolution
+	
+	
+	CONSÉQUENCES :
+		- BONNE CONSERVATION DES INFORMATIONS DE DEPART 
+		- BONNE PRÉCISION SPATIALE    CE QUI EST IMPORTANT EN SEGMENTATION SÉMENTIQUE
+
+
+(a) HRNetV1 : SORTIE = DERNIERE COUCHE DE CONVOLUTION DU RESEAU PRINCIPAL (celui à haute résolution MAXIMAL)
+(b) HRNetV2 : SORTIE = Concaténation des dernières couche de convolution (suréchantillonnées) des sous réseaux //
+	
+
+Dans le seul modèle disponible de la bibliothèque une technique d'OCR (Object-Contextual Representations)
+est ajouter au modèle HRNet (v2) qui permet d'améliorer légèrement la detection des classes de pixels
+mais son impact est très faible (d'après les papiers des auteurs du modèle HRNet) : ENVIRON 0.5 %
+
+DONC DECISION DE NE PAS APPRONDIR PLUS QUE ÇA LE SUJET.
+
+
+
+PASSONS AUX RÉSULTATS
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+9/ POC : RÉSULTATS
+
+Résultats absolus  MITIGÉS (Toute lib confondues) :
+	Les différents tests (dispo en annexe) montrent que la nouvelle librairie (utilisée pour entrainer HRNet) présentent de moins bons résultats 
+	que l’ancienne (initialement utilisée pour l’entrainement de modèle UNet baseline) VOIR comparaison UNet / UNet 2
+
+Résultats relatifs VIABLES (uniquement Nouvelle lib):
+	Mais pour autant cette nouvelle lib a le mérite d’exister et de pouvoir faire l’entrainement de modèle plus récent tel qu’ACFNet et HRNet
+	Et surtout, elle permet également d’entrainer notre modèle baseline UNet(mobilenet) 
+	Donc même si moins performante, elle nous permet de comparer nos 2 modèles sur la même base !
+	Et dans ce cas de figure nous avons des résultats intéressants que voici :
+
+Meilleur score: HRNet
+Rapidité: UNet
+
+
+POUR FINIR : 
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+10/ Déploiement DASHBOARD : DONNÉES + POC
+
+	- system de cache
+	- WCAG : 
+			 - Image / graphe 
+			 - Possibilité de changer la couleur de fond
+			 - Changer la taille du texte
+			 - A LA BASE LES IMAGES de MASQUE ETAIT EN NOIR ET BLANC MAIS NOUS AVONS DU FAIRE UN TABLEAU DE MAPPING POUR LES METTRE EN COULEUR !
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+11/ SYNTHÈSE
+
+
+	
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+12/ PERSPECTIVES
+
+Avoir plus de temps pour pouvoir recherchercher un meilleur modèle
+
+	
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+13/ MERCI
+
+- Remercier mentor
+- Remercier le créateur de la lib qui a pris un peu de son temps pour moi
+- Remercier les auditeurs
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+14/
+
+
+Baseline  Unet
+POC  HRNet
+Métriques  Categorical Accuracy et meanIoU
+
+
+30 Classes  8 Classes
+Data generator sans augmentation
+Images et Masque  128 * 128
+Batch size  4
+

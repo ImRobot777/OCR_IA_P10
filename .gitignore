@@ -1,0 +1,25 @@
+# Temporary & lock files
+~$*
+*.tmp
+*.bak
+.DS_Store
+Thumbs.db
+
+# Large submission archives & duplicate backups
+*.zip
+* - Copie.*
+* - OLD.*
+*_old.*
+*_OLD.*
+
+# Python environment & cache
+__pycache__/
+*.py[cod]
+*$py.class
+.env
+.venv/
+env/
+venv/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
